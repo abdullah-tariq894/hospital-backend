@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>My City Hospital — Reception Panel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --brand-red:#D8232A;
+    --brand-navy:#122C43;
+    --bg:#F5F7FA;
+    --panel:#FFFFFF;
+    --line:#E4E9EF;
+    --text:#1B2733;
+    --text-dim:#5C6B7A;
+    --present:#1E9E5A;
+    --absent:#C23B3B;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:'Inter',system-ui,sans-serif;}
+  h1{font-family:'Poppins',sans-serif;}
+  .header{background:var(--brand-navy);color:#fff;padding:18px 24px;}
+  .header h1{margin:0;font-size:20px;}
+  .header p{margin:4px 0 0;font-size:13px;opacity:.75;}
+  .wrap{max-width:900px;margin:0 auto;padding:20px;}
+  .search{width:100%;padding:12px 14px;border-radius:10px;border:1px solid var(--line);margin-bottom:16px;font-size:14px;}
+  .doc-row{
+    background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    padding:14px 16px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:12px;
+  }
+  .doc-info .name{font-weight:700;font-size:15px;}
+  .doc-info .dept{font-size:12.5px;color:var(--text-dim);margin-top:2px;}
+  .status-pill{font-size:12px;font-weight:600;padding:4px 10px;border-radius:999px;margin-right:10px;}
+  .status-pill.present{background:rgba(30,158,90,0.12);color:var(--present);}
+  .status-pill.absent{background:rgba(194,59,59,0.12);color:var(--absent);}
+  .actions{display:flex;align-items:center;gap:8px;}
+  button{
+    font-family:inherit;cursor:pointer;border:none;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:600;
+  }
+  .btn-present{background:var(--present);color:#fff;}
+  .btn-absent{background:#fff;color:var(--absent);border:1px solid var(--absent);}
+  .btn-present:disabled, .btn-absent:disabled{opacity:.45;cursor:default;}
+  .loading, .empty{text-align:center;color:var(--text-dim);padding:40px 0;}
+  .toast{
+    position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
+    background:var(--brand-navy);color:#fff;padding:10px 18px;border-radius:10px;font-size:13px;
+    opacity:0;transition:opacity .25s;pointer-events:none;
+  }
+  .toast.show{opacity:1;}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>My City Hospital — Reception Panel</h1>
+  <p>Doctor ko yahan se Present ya Absent mark karo. Chatbot mein status turant (kuch second mein) update ho jayega.</p>
+</div>
+
+<div class="wrap">
+  <input id="search" class="search" placeholder="Doctor ka naam search karein..." />
+  <div id="list" class="loading">Doctors load ho rahe hain...</div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+  // ====== YAHAN APNI BACKEND URL DAALO ======
+  // Agar admin.html aur API same Vercel project mein hain to ye relative rehne do.
+  // Agar alag deploy kiya hai to poora URL daalo, e.g. "https://mycityhospital-api.vercel.app"
+  const API_BASE = "";
+  // ===========================================
+
+  let allDoctors = [];
+
+  async function fetchDoctors(){
+    try{
+      const res = await fetch(`${API_BASE}/api/doctors`);
+      const data = await res.json();
+      allDoctors = data.doctors || [];
+      render(document.getElementById('search').value);
+    }catch(err){
+      document.getElementById('list').innerHTML = '<div class="empty">Doctors load nahi ho sake. Backend URL check karein.</div>';
+    }
+  }
+
+  function render(filterText){
+    const list = document.getElementById('list');
+    const f = (filterText||'').toLowerCase().trim();
+    const filtered = allDoctors.filter(d => d.name.toLowerCase().includes(f) || d.department.toLowerCase().includes(f));
+
+    if(filtered.length === 0){
+      list.innerHTML = '<div class="empty">Koi doctor nahi mila.</div>';
+      return;
+    }
+
+    list.innerHTML = filtered.map(d => `
+      <div class="doc-row" data-id="${d.id}">
+        <div class="doc-info">
+          <div class="name">${d.name}</div>
+          <div class="dept">${d.department}</div>
+        </div>
+        <div class="actions">
+          <span class="status-pill ${d.status === 'present' ? 'present' : 'absent'}">
+            ${d.status === 'present' ? '● Present' : '○ Absent'}
+          </span>
+          <button class="btn-present" ${d.status === 'present' ? 'disabled' : ''} onclick="setStatus('${d.id}','present')">Mark Present</button>
+          <button class="btn-absent" ${d.status === 'absent' ? 'disabled' : ''} onclick="setStatus('${d.id}','absent')">Mark Absent</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  async function setStatus(id, status){
+    try{
+      const res = await fetch(`${API_BASE}/api/doctors/${id}/status`, {
+        method: 'PATCH',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ status })
+      });
+      if(!res.ok) throw new Error('failed');
+      showToast(status === 'present' ? 'Doctor Present mark ho gaya ✅' : 'Doctor Absent mark ho gaya');
+      fetchDoctors(); // list turant refresh
+    }catch(err){
+      showToast('Update fail ho gaya, dobara koshish karein');
+    }
+  }
+
+  function showToast(msg){
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(()=> t.classList.remove('show'), 2200);
+  }
+
+  document.getElementById('search').addEventListener('input', (e) => render(e.target.value));
+
+  fetchDoctors();
+  setInterval(fetchDoctors, 8000); // har 8 second mein background refresh
+</script>
+
+</body>
+</html>
