@@ -1,0 +1,13 @@
+{
+  "name": "hospital-backend",
+  "version": "1.0.0",
+  "description": "My City Hospital chatbot ke liye MongoDB backend (Vercel serverless functions)",
+  "scripts": {
+    "seed": "node seed/seed.js",
+    "seed:diagnostics": "node seed/seed-diagnostics.js"
+  },
+  "dependencies": {
+    "mongoose": "^8.5.0",
+    "dotenv": "^16.4.5"
+  }
+}
